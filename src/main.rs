@@ -5,7 +5,12 @@ pub mod syntax_tree;
 pub mod value;
 
 fn main() {
-    println!("Hello, world!");
+    use prelude::std_prelude;
+    let input = todo!();
+    // let parsed = syntax_tree::parser::Parser::parse(input);
+    // let executable = execution_tree::parser::Parser::parse(parsed, |b| std_prelude(b));
+    // let runtime = runtime::Runtime::new();
+    // runtime.execute(&executable);
 }
 
 #[test]

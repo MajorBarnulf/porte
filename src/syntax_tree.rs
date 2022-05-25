@@ -9,6 +9,10 @@ pub struct Program {
 pub struct Expr(pub Box<ExprInner>);
 
 impl Expr {
+    pub fn new(inner: ExprInner) -> Self {
+        Self(Box::new(inner))
+    }
+
     pub fn inner(&self) -> &ExprInner {
         let Self(inner) = self;
         inner
@@ -73,6 +77,72 @@ impl Expr {
             arm_true,
             arm_false,
         })))
+    }
+}
+
+impl From<Scope> for Expr {
+    fn from(input: Scope) -> Self {
+        Self::new(ExprInner::Scope(input))
+    }
+}
+
+impl From<Literal> for Expr {
+    fn from(input: Literal) -> Self {
+        Self::new(ExprInner::Literal(input))
+    }
+}
+
+impl From<VarDef> for Expr {
+    fn from(input: VarDef) -> Self {
+        Self::new(ExprInner::VarDef(input))
+    }
+}
+
+impl From<VarAssign> for Expr {
+    fn from(input: VarAssign) -> Self {
+        Self::new(ExprInner::VarAssign(input))
+    }
+}
+
+impl From<VarCall> for Expr {
+    fn from(input: VarCall) -> Self {
+        Self::new(ExprInner::VarCall(input))
+    }
+}
+
+impl From<FnDef> for Expr {
+    fn from(input: FnDef) -> Self {
+        Self::new(ExprInner::FnDef(input))
+    }
+}
+
+impl From<FnCall> for Expr {
+    fn from(input: FnCall) -> Self {
+        Self::new(ExprInner::FnCall(input))
+    }
+}
+
+impl From<FnRet> for Expr {
+    fn from(input: FnRet) -> Self {
+        Self::new(ExprInner::FnRet(input))
+    }
+}
+
+impl From<Loop> for Expr {
+    fn from(input: Loop) -> Self {
+        Self::new(ExprInner::Loop(input))
+    }
+}
+
+impl From<LoopBr> for Expr {
+    fn from(input: LoopBr) -> Self {
+        Self::new(ExprInner::LoopBr(input))
+    }
+}
+
+impl From<Cond> for Expr {
+    fn from(input: Cond) -> Self {
+        Self::new(ExprInner::Cond(input))
     }
 }
 
@@ -164,3 +234,5 @@ pub struct Cond {
     pub arm_true: Expr,
     pub arm_false: Option<Expr>,
 }
+
+pub mod parser;
