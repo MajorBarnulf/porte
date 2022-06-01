@@ -17,11 +17,11 @@ PROUT is a minimal programming language providing tools to automate file managem
 
 ```sh
 
-$ prout hello_world.pr
+$ prout hello-world.pr
 
 
 ```
 
-## Author
+## Authors
 
-- JOLIMAITRE Matthieu <matthieu@imagevo.fr>, developper
+- JOLIMAITRE Matthieu <matthieu@imagevo.fr>

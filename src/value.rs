@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use self::function::Function;
 pub mod function {
-    use crate::execution_tree::{Expr, Id};
+    use crate::execution_tree::Id;
 
     use super::Value;
 
@@ -72,6 +72,41 @@ pub enum Value {
 }
 
 impl Value {
+    pub fn as_bool(&self) -> Option<bool> {
+        match self {
+            Self::Bool(b) => Some(*b),
+            _ => None,
+        }
+    }
+
+    pub fn as_number(&self) -> Option<f64> {
+        match self {
+            Self::Number(n) => Some(*n),
+            _ => None,
+        }
+    }
+
+    pub fn as_string(&self) -> Option<&str> {
+        match self {
+            Self::String(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    pub fn as_object(&self) -> Option<&HashMap<String, Value>> {
+        match self {
+            Self::Object(h) => Some(h),
+            _ => None,
+        }
+    }
+
+    pub fn as_object_mut(&mut self) -> Option<&mut HashMap<String, Value>> {
+        match self {
+            Self::Object(h) => Some(h),
+            _ => None,
+        }
+    }
+
     pub fn as_function(&self) -> Option<&Function> {
         match self {
             Self::Function(function) => Some(function),

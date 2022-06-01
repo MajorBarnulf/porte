@@ -1,0 +1,36 @@
+
+hello: "hello";
+prout: "prout";
+
+line: hello;
+line <- add(line, " ");
+line <- add(line, prout);
+
+say-it: () => {
+    out(line)
+};
+
+say-it();
+
+
+for: (from, to, incr, fn) => {
+    index: from;
+    loop {
+        if not(inf(index, to)) break true;
+        result: fn(index);
+        index <- add(index, incr)
+    }
+};
+
+for(0, 3, 0.5, (index) => {
+    out(add("index: ", index))
+});
+
+
+a: 1;
+b: 2;
+c: 3;
+a <- b <- c;
+out(add("a :", a));
+out(add("b :", b));
+out(add("c :", c));

@@ -1,20 +1,47 @@
-use chumsky::prelude::*;
-
 use super::*;
+use chumsky::{prelude::*, text::whitespace};
 
-pub fn scope_parser() -> impl Parser<char, Scope, Error = Simple<char>> {
-    expression_parser()
-        .chain(
-            just(';')
-                .padded()
-                .ignore_then(expression_parser())
-                .repeated(),
-        )
-        .delimited_by(just('{'), just('}'))
-        .map(|instructions| Scope { instructions })
+pub trait AbstractParser<T>: Parser<char, T, Error = Simple<char>> {}
+
+impl<T, U: Parser<char, T, Error = Simple<char>>> AbstractParser<T> for U {}
+
+pub fn debugging_expression_parser() -> impl AbstractParser<Expr> + Clone {
+    variable_call_parser().padded().map(|v| v.into())
 }
 
-pub fn literal_value() -> impl Parser<char, Value, Error = Simple<char>> {
+pub fn scope_parser(expression: impl AbstractParser<Expr> + Clone) -> impl AbstractParser<Scope> {
+    let open_list = expression.separated_by(just(';'));
+    let closed_list = open_list.clone().then_ignore(just(';').then(whitespace()));
+    open_list
+        .map(|instructions| Scope { instructions })
+        .or(closed_list.map(|mut instructions| {
+            instructions.push(Value::None.into());
+            Scope { instructions }
+        }))
+        .padded()
+        .delimited_by(just('{'), just('}'))
+}
+
+#[test]
+fn test_scope_parser() {
+    let parser = scope_parser(debugging_expression_parser());
+    let value = parser.parse("{ arbre }");
+    dbg!(value.unwrap());
+}
+
+// TODO: add objects ?
+pub fn literal_value() -> impl AbstractParser<Value> {
+    let bool = just("false")
+        .map(|_| false.into())
+        .or(just("true").map(|_| true.into()));
+
+    let none = just("none").map(|_| Value::None);
+
+    let string = just('\"')
+        .ignore_then(none_of("\"").repeated())
+        .then_ignore(just('\"'))
+        .map(|v| String::from_iter(&v).into());
+
     let frac = just('.').chain(text::digits(10));
     let number = just('-')
         .or_not()
@@ -22,105 +49,346 @@ pub fn literal_value() -> impl Parser<char, Value, Error = Simple<char>> {
         .chain::<char, _, _>(frac.or_not().flatten())
         .collect::<String>()
         .from_str()
-        .unwrapped();
-    let literal = number.clone().map(|n| Value::Number(n)); // TODO: add other types
+        .unwrapped()
+        .map(|n: f64| n.into());
+
+    let literal = bool.or(none).or(string).or(number);
     literal
 }
 
-pub fn name() -> impl Parser<char, String, Error = Simple<char>> {
-    let name = just('a')
-        .or(just('b'))
-        .or(just('c'))
-        .or(just('d'))
-        .or(just('e'))
-        .or(just('f'))
-        .or(just('g'))
-        .or(just('h'))
-        .or(just('i'))
-        .or(just('j'))
-        .or(just('k'))
-        .or(just('l'))
-        .or(just('m'))
-        .or(just('n'))
-        .or(just('o'))
-        .or(just('p'))
-        .or(just('q'))
-        .or(just('r'))
-        .or(just('s'))
-        .or(just('t'))
-        .or(just('u'))
-        .or(just('v'))
-        .or(just('w'))
-        .or(just('x'))
-        .or(just('y'))
-        .or(just('z'))
-        .or(just('-'))
-        .or(just('_'))
-        .repeated()
-        .map(|v| String::from_iter(&v));
+#[test]
+fn test_literal_value() {
+    let parser = literal_value();
+    let value = parser.parse("5");
+    assert_eq!(value.unwrap().as_number().unwrap(), 5.);
+}
+
+pub fn name() -> impl AbstractParser<String> + Clone {
+    let first = one_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
+    let rest = first.clone().or(one_of("1234567890-_+/*"));
+    let name = first.then(rest.repeated()).map(|(f, v)| {
+        let rest = String::from_iter(&v);
+        format!("{f}{rest}")
+    });
     name
 }
 
-pub fn variable_definition_parser() -> impl Parser<char, VarDef, Error = Simple<char>> {
+pub fn variable_definition_parser(
+    expression: impl AbstractParser<Expr>,
+) -> impl AbstractParser<VarDef> {
     name()
-        .padded()
-        .then_ignore(just(":"))
-        .padded()
-        .then(expression_parser())
+        .then_ignore(just(":").padded())
+        .then(expression)
         .map(|(name, value)| VarDef { name, value })
 }
 
-pub fn variable_assignement_parser() -> impl Parser<char, VarAssign, Error = Simpl<char>> {
-	expression_parser().then() name()
+#[test]
+fn test_variable_definition_parser() {
+    let parser = variable_definition_parser(debugging_expression_parser());
+    let value = parser.parse("a : b");
+    dbg!(value.unwrap());
 }
 
-pub fn expression_parser() -> impl Parser<char, Expr, Error = Simple<char>> {
-    let scope = scope_parser().map(|s| s.into());
-    let litteral = literal_value().map(|v| Expr::new_literal(v));
-    let variable_definition = variable_definition_parser().map(|s| s.into());
-    let variable_assignment;
-    let variable_call;
-    let function_definition;
-    let function_call;
-    let function_return;
-    let loop_;
-    let loop_break;
-    let condition;
-    scope
-        .or(litteral)
-        .or(variable_definition)
-        .or(variable_assignment)
-        .or(variable_call)
-        .or(function_definition)
-        .or(function_call)
-        .or(function_return)
-        .or(loop_)
-        .or(loop_break)
-        .or(condition)
+pub fn variable_assignement_parser(
+    expression: impl AbstractParser<Expr>,
+) -> impl AbstractParser<VarAssign> {
+    name()
+        .then_ignore(just("<-").padded())
+        .then(expression)
+        .map(|(name, value)| VarAssign { name, value })
 }
 
-pub fn parser() -> impl Parser<char, Program, Error = Simple<char>> {
-    let scope = expression_parser().chain(
-        just(';')
-            .padded()
-            .ignore_then(expression_parser())
-            .repeated(),
-    );
+#[test]
+fn test_variable_assignement_parser() {
+    let parser = variable_assignement_parser(debugging_expression_parser());
+    let value = parser.parse("arbre <- expr");
+    dbg!(value.unwrap());
+}
 
-    let program = scope
-        .map(|instructions| {
-            let body = Scope { instructions };
-            Program { body }
+pub fn variable_call_parser() -> impl AbstractParser<VarCall> + Clone {
+    name().map(|name| VarCall { name })
+}
+
+#[test]
+fn test_variable_call_parser() {
+    let parser = variable_call_parser();
+    let value = parser.parse("arbre");
+    assert_eq!(value.unwrap().name, "arbre".to_string());
+}
+
+pub fn function_definition_parser(
+    expression: impl AbstractParser<Expr> + Clone,
+) -> impl AbstractParser<FnDef> {
+    let parameters = name().separated_by(just(',').padded());
+    let body = scope_parser(expression);
+    parameters
+        .padded()
+        .delimited_by(just('('), just(')'))
+        .then_ignore(just("=>").padded())
+        .then(body)
+        .map(|(parameter_names, body)| FnDef {
+            body,
+            parameter_names,
         })
-        .then_ignore(end().recover_with(skip_then_retry_until([])));
+}
+
+#[test]
+fn test_function_definition_parser() {
+    let parser = function_definition_parser(debugging_expression_parser());
+    let value = parser.parse("(a) => { b }");
+    dbg!(value.unwrap());
+}
+
+pub fn function_call_parser(expression: impl AbstractParser<Expr>) -> impl AbstractParser<FnCall> {
+    let parameters = expression.separated_by(just(',').padded());
+    name()
+        .then(parameters.padded().delimited_by(just('('), just(')')))
+        .map(|(name, arguments)| FnCall { arguments, name })
+}
+
+#[test]
+fn test_function_call_parser() {
+    let parser = function_call_parser(debugging_expression_parser());
+    let value = parser.parse("f( a , b )");
+    dbg!(value.unwrap());
+}
+
+pub fn function_return_parser(expression: impl AbstractParser<Expr>) -> impl AbstractParser<FnRet> {
+    just("return")
+        .ignore_then(expression.or_not())
+        .map(|expr| expr.unwrap_or(From::<Value>::from(true.into())))
+        .map(|value| FnRet { value })
+}
+
+#[test]
+fn test_function_return_parser() {
+    let parser = function_return_parser(debugging_expression_parser());
+    let value = parser.parse("return  a");
+    dbg!(value.unwrap());
+}
+
+pub fn loop_parser(expression: impl AbstractParser<Expr> + Clone) -> impl AbstractParser<Loop> {
+    just("loop")
+        .then(whitespace())
+        .ignore_then(scope_parser(expression))
+        .map(|body| Loop { body })
+}
+
+#[test]
+fn test_loop_parser() {
+    let parser = loop_parser(debugging_expression_parser());
+    let value = parser.parse("loop { a}");
+    dbg!(value.unwrap());
+}
+
+pub fn loop_break_parser(expression: impl AbstractParser<Expr>) -> impl AbstractParser<LoopBr> {
+    just("break")
+        .ignore_then(just(" ").then(whitespace()).ignore_then(expression))
+        .map(|value| LoopBr { value })
+}
+
+#[test]
+fn test_loop_break_parser() {
+    let parser = loop_break_parser(debugging_expression_parser());
+    let value = parser.parse("break  a");
+    dbg!(value.unwrap());
+}
+
+pub fn condition_parser(
+    expression: impl AbstractParser<Expr> + Clone,
+) -> impl AbstractParser<Cond> {
+    just("if ")
+        .ignore_then(expression.clone())
+        .then(expression.clone())
+        .then(just("else ").ignore_then(expression.clone()).or_not())
+        .map(|((condition, arm_true), arm_false)| Cond {
+            condition,
+            arm_true,
+            arm_false,
+        })
+}
+
+#[test]
+fn test_condition_parser() {
+    let parser = condition_parser(debugging_expression_parser());
+    let value = parser.parse("if a t else f");
+    dbg!(value.unwrap());
+}
+
+fn sugar_parser(expression: impl AbstractParser<Expr> + Clone) -> impl AbstractParser<Expr> {
+    let add = expression
+        .clone()
+        .then_ignore(just(" + "))
+        .then(expression.clone())
+        .map(|(l, r)| {
+            FnCall {
+                name: "add".into(),
+                arguments: vec![l, r],
+            }
+            .into()
+        });
+
+    let sub = expression
+        .clone()
+        .then_ignore(just(" - "))
+        .then(expression.clone())
+        .map(|(l, r)| {
+            FnCall {
+                name: "sub".into(),
+                arguments: vec![l, r],
+            }
+            .into()
+        });
+
+    let eq = expression
+        .clone()
+        .then_ignore(just(" == "))
+        .then(expression.clone())
+        .map(|(l, r)| {
+            FnCall {
+                name: "eq".into(),
+                arguments: vec![l, r],
+            }
+            .into()
+        });
+
+    let sup = expression
+        .clone()
+        .then_ignore(just(" > "))
+        .then(expression.clone())
+        .map(|(l, r)| {
+            FnCall {
+                name: "sup".into(),
+                arguments: vec![l, r],
+            }
+            .into()
+        });
+
+    let inf = expression
+        .clone()
+        .then_ignore(just(" < "))
+        .then(expression.clone())
+        .map(|(l, r)| {
+            FnCall {
+                name: "inf".into(),
+                arguments: vec![l, r],
+            }
+            .into()
+        });
+
+    let or = expression
+        .clone()
+        .then_ignore(just(" || "))
+        .then(expression.clone())
+        .map(|(l, r)| {
+            FnCall {
+                name: "or".into(),
+                arguments: vec![l, r],
+            }
+            .into()
+        });
+
+    let and = expression
+        .clone()
+        .then_ignore(just(" && "))
+        .then(expression.clone())
+        .map(|(l, r)| {
+            FnCall {
+                name: "and".into(),
+                arguments: vec![l, r],
+            }
+            .into()
+        });
+
+    eq.or(add).or(sub).or(sup).or(inf).or(or).or(and)
+}
+
+pub fn expression_parser() -> impl AbstractParser<Expr> {
+    let expression = recursive(|expression| {
+        //let sugar = sugar_parser(expression.clone());
+        let condition = condition_parser(expression.clone()).map(|i| i.into());
+        let function_definition = function_definition_parser(expression.clone()).map(|i| i.into());
+        let function_return = function_return_parser(expression.clone()).map(|i| i.into());
+        let loop_ = loop_parser(expression.clone()).map(|i| i.into());
+        let loop_break = loop_break_parser(expression.clone()).map(|i| i.into());
+        let scope = scope_parser(expression.clone()).map(|i| i.into());
+        let litteral = literal_value().map(|v| Expr::new_literal(v));
+        let variable_definition = variable_definition_parser(expression.clone()).map(|i| i.into());
+        let variable_assignment = variable_assignement_parser(expression.clone()).map(|i| i.into());
+        let function_call = function_call_parser(expression.clone()).map(|i| i.into());
+        let variable_call = variable_call_parser().map(|i| i.into());
+
+        //sugar
+        //    .or(condition)
+        condition
+            .or(function_definition)
+            .or(function_return)
+            .or(loop_)
+            .or(loop_break)
+            .or(scope)
+            .or(litteral)
+            .or(variable_definition)
+            .or(variable_assignment)
+            .or(function_call)
+            .or(variable_call)
+            .padded()
+    });
+    expression
+}
+
+#[test]
+fn test_expression_parser() {
+    let text = r##"if a b"##;
+    let parser = expression_parser();
+    let value = parser.parse(text);
+    dbg!(value.unwrap());
+}
+
+fn parser() -> impl AbstractParser<Program> {
+    let scope = expression_parser()
+        .separated_by(just(';').padded())
+        .then_ignore(just(';').padded().or_not())
+        .then_ignore(end());
+    let program = scope.map(|instructions| {
+        let body = Scope { instructions };
+        Program { body }
+    });
     program
 }
 
-// impl Parser {
-//     pub fn parse(input: &str) -> Program {
-//         todo!()
-//     }
-// }
+#[test]
+fn test_parser() {
+    let example = r##"
+print(3);
+
+a: 3;
+
+b: (a) => {
+    print("a")
+};
+
+f(a)
+
+"##;
+    let parser = parser();
+    let e = parser.parse(example);
+    dbg!(e.unwrap());
+}
+
+pub struct ParserWrapper {
+    inner: Box<dyn AbstractParser<Program>>,
+}
+
+impl ParserWrapper {
+    pub fn new() -> Self {
+        let inner = Box::new(parser());
+        ParserWrapper { inner }
+    }
+
+    pub fn parse<'i>(&self, input: &'i str) -> Result<Program, Vec<Simple<char>>> {
+        self.inner.parse(input)
+    }
+}
 
 /*
 // example
@@ -137,7 +405,7 @@ loop {
     if a <= 0 {
         break true
     } else {
-        a - 1 -> a
+        a <- a - 1
     }
 }
 

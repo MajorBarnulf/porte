@@ -29,7 +29,7 @@ impl FrameBuilder {
 }
 
 pub struct Frame {
-    scope_id: Id,
+    _scope_id: Id,
     variables: HashMap<Id, Value>,
 }
 
@@ -54,7 +54,7 @@ impl Frame {
         let FrameBuilder { variables } = frame_builder;
         let scope_id = scope_id.clone();
         Self {
-            scope_id,
+            _scope_id: scope_id,
             variables,
         }
     }

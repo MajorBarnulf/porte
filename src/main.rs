@@ -1,3 +1,5 @@
+use std::{env::args, fs};
+
 pub mod execution_tree;
 pub mod prelude;
 pub mod runtime;
@@ -6,11 +8,14 @@ pub mod value;
 
 fn main() {
     use prelude::std_prelude;
-    let input = todo!();
-    // let parsed = syntax_tree::parser::Parser::parse(input);
-    // let executable = execution_tree::parser::Parser::parse(parsed, |b| std_prelude(b));
-    // let runtime = runtime::Runtime::new();
-    // runtime.execute(&executable);
+
+    let path = args().nth(1).expect("[error]: usage 'prout <path>'");
+    let input = fs::read_to_string(path).expect("file not found");
+    let ast_parser = syntax_tree::parser::ParserWrapper::new();
+    let parsed = ast_parser.parse(&input).unwrap();
+    let executable = execution_tree::parser::Parser::parse(parsed, |b| std_prelude(b));
+    let mut runtime = runtime::Runtime::new();
+    runtime.execute(&executable);
 }
 
 #[test]
