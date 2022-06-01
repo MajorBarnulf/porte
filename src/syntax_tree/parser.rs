@@ -215,7 +215,7 @@ fn test_condition_parser() {
     dbg!(value.unwrap());
 }
 
-fn sugar_parser(expression: impl AbstractParser<Expr> + Clone) -> impl AbstractParser<Expr> {
+fn _sugar_parser(expression: impl AbstractParser<Expr> + Clone) -> impl AbstractParser<Expr> {
     let add = expression
         .clone()
         .then_ignore(just(" + "))
