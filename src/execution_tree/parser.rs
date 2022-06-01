@@ -19,6 +19,15 @@ impl ParserBuilder {
     pub fn prelude(&mut self, name: String, value: Value) {
         self.prelude.push((name, value));
     }
+
+    fn append_globals(&self, body: &mut syntax_tree::Scope) {
+        let prelude = self.prelude.clone();
+        for (name, value) in prelude.into_iter().rev() {
+            let value = syntax_tree::Expr::new_literal(value);
+            let expression = syntax_tree::Expr::new_variable_definition(name, value);
+            body.instructions.insert(0, expression);
+        }
+    }
 }
 
 pub struct Parser {
@@ -26,39 +35,39 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn parse<F>(ast: syntax_tree::Program, builder: F) -> execution_tree::Program
+    fn new() -> Self {
+        let scopes = HashMap::new();
+        Self { scopes }
+    }
+
+    pub fn parse<F>(syntax_tree: syntax_tree::Program, builder: F) -> execution_tree::Program
     where
         F: FnOnce(&mut ParserBuilder),
     {
-        let syntax_tree::Program { mut body } = ast;
+        let operation = builder;
+        let syntax_tree::Program { mut body } = syntax_tree;
 
-        let mut parser = Self {
-            scopes: HashMap::new(),
-        };
+        let mut builder = ParserBuilder::new();
+        operation(&mut builder);
+        builder.append_globals(&mut body);
+
+        let mut parser = Self::new();
         let parser_scope = ParserScope::new_root();
-        let mut parser_builder = ParserBuilder::new();
-        builder(&mut parser_builder);
-        for (name, value) in parser_builder.prelude.into_iter().rev() {
-            let value = syntax_tree::Expr::new_literal(value);
-            let expression = syntax_tree::Expr::new_variable_definition(name, value);
-            body.instructions.insert(0, expression);
-        }
-
-        let body_scope_id = parser.parse_ast_scope(body, &parser_scope);
-
+        let main_scope_id = parser.parse_syntax_tree_scope(body, &parser_scope);
         let Self { scopes } = parser;
+
         execution_tree::Program {
-            main_scope_id: body_scope_id,
+            main_scope_id,
             scopes,
         }
     }
 
-    pub fn parse_ast_scope(
+    pub fn parse_syntax_tree_scope(
         &mut self,
-        ast_scope: syntax_tree::Scope,
+        syntax_tree_scope: syntax_tree::Scope,
         parser_scope: &ParserScope,
     ) -> execution_tree::Id {
-        let syntax_tree::Scope { instructions } = ast_scope;
+        let syntax_tree::Scope { instructions } = syntax_tree_scope;
 
         let scope_id = parser_scope.get_current_id();
         let parent_scope_id = parser_scope.get_parent_id();
@@ -86,8 +95,8 @@ impl Parser {
         let inner = expression.into_inner();
         match inner {
             syntax_tree::ExprInner::Scope(scope) => {
-                let parser_scope = parser_scope.make_child_common();
-                let scope = self.parse_ast_scope(scope, &parser_scope);
+                let parser_scope = parser_scope.child_common();
+                let scope = self.parse_syntax_tree_scope(scope, &parser_scope);
                 execution_tree::Expr::new_scope(scope)
             }
             syntax_tree::ExprInner::Literal(literal) => {
@@ -187,12 +196,12 @@ impl Parser {
             parameter_names,
         } = function_definition;
 
-        let parser_scope = parser_scope.make_child_function();
+        let parser_scope = parser_scope.child_function();
         let parameter_ids = parameter_names
             .into_iter()
             .map(|name| parser_scope.add_name(name))
             .collect();
-        let body_scope_id = self.parse_ast_scope(body, &parser_scope);
+        let body_scope_id = self.parse_syntax_tree_scope(body, &parser_scope);
 
         execution_tree::FnDef {
             body_scope_id,
@@ -246,8 +255,8 @@ impl Parser {
     ) -> execution_tree::Loop {
         let syntax_tree::Loop { body } = loop_;
 
-        let parser_scope = parser_scope.make_child_loop();
-        let body_scope_id = self.parse_ast_scope(body, &parser_scope);
+        let parser_scope = parser_scope.child_loop();
+        let body_scope_id = self.parse_syntax_tree_scope(body, &parser_scope);
 
         execution_tree::Loop { body_scope_id }
     }
@@ -328,7 +337,7 @@ impl ParserScopeVariables {
 #[derive(Debug, Clone)]
 pub struct ParserScope {
     variables: Rc<Mutex<ParserScopeVariables>>,
-    next_global_id: Rc<Mutex<Id>>,
+    next_id: Rc<Mutex<Id>>,
     current_id: Id,
     parent_id: Option<Id>,
     current_function_scope_id: Option<Id>,
@@ -338,7 +347,7 @@ pub struct ParserScope {
 impl ParserScope {
     pub fn new_root() -> Self {
         let current_id = Id::zero();
-        let next_global_id = current_id.next();
+        let next_id = current_id.next();
         let variables = ParserScopeVariables {
             local_variables: HashMap::new(),
             parent_scope: None,
@@ -346,21 +355,21 @@ impl ParserScope {
         Self {
             parent_id: None,
             current_id,
-            next_global_id: Rc::new(Mutex::new(next_global_id)),
+            next_id: Rc::new(Mutex::new(next_id)),
             variables: Rc::new(Mutex::new(variables)),
             current_function_scope_id: None,
             current_loop_scope_id: None,
         }
     }
 
-    pub fn make_child_common(&self) -> Self {
+    pub fn child_common(&self) -> Self {
         let variables = ParserScopeVariables {
             local_variables: HashMap::new(),
             parent_scope: Some(self.variables.clone()),
         };
         Self {
             parent_id: Some(self.get_current_id()),
-            next_global_id: self.next_global_id.clone(),
+            next_id: self.next_id.clone(),
             variables: Rc::new(Mutex::new(variables)),
             current_id: self.request_new_id(),
             current_function_scope_id: self.get_current_function_id(),
@@ -368,7 +377,7 @@ impl ParserScope {
         }
     }
 
-    pub fn make_child_function(&self) -> Self {
+    pub fn child_function(&self) -> Self {
         let variables = ParserScopeVariables {
             local_variables: HashMap::new(),
             parent_scope: Some(self.variables.clone()),
@@ -378,7 +387,7 @@ impl ParserScope {
 
         Self {
             parent_id: Some(self.get_current_id()),
-            next_global_id: self.next_global_id.clone(),
+            next_id: self.next_id.clone(),
             variables: Rc::new(Mutex::new(variables)),
             current_id,
             current_function_scope_id: Some(current_id.clone()),
@@ -386,7 +395,7 @@ impl ParserScope {
         }
     }
 
-    pub fn make_child_loop(&self) -> Self {
+    pub fn child_loop(&self) -> Self {
         let variables = ParserScopeVariables {
             local_variables: HashMap::new(),
             parent_scope: Some(self.variables.clone()),
@@ -396,7 +405,7 @@ impl ParserScope {
 
         Self {
             parent_id: Some(self.get_current_id()),
-            next_global_id: self.next_global_id.clone(),
+            next_id: self.next_id.clone(),
             variables: Rc::new(Mutex::new(variables)),
             current_id,
             current_function_scope_id: self.get_current_function_id(),
@@ -425,7 +434,7 @@ impl ParserScope {
     }
 
     fn request_new_id(&self) -> Id {
-        let mut next_id_ref = self.next_global_id.lock().unwrap();
+        let mut next_id_ref = self.next_id.lock().unwrap();
         let id = *next_id_ref;
         *next_id_ref = id.next();
         id

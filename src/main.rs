@@ -5,6 +5,7 @@ pub mod prelude;
 pub mod runtime;
 pub mod syntax_tree;
 pub mod value;
+pub mod demo;
 
 fn main() {
     use prelude::std_prelude;
