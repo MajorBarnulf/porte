@@ -187,7 +187,7 @@ impl Parser {
             parameter_names,
         } = function_definition;
 
-        let parser_scope = parser_scope.make_child_common();
+        let parser_scope = parser_scope.make_child_function();
         let parameter_ids = parameter_names
             .into_iter()
             .map(|name| parser_scope.add_name(name))
@@ -209,7 +209,7 @@ impl Parser {
 
         let variable_id = parser_scope
             .get_variable_id(&name)
-            .expect("call of undeclared function");
+            .expect(&format!("call of undeclared function '{name}'"));
         let parameters = arguments
             .into_iter()
             .map(|argument| self.parse_expression(argument, parser_scope))

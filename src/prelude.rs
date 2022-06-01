@@ -132,7 +132,11 @@ fn set(args: Vec<Value>) -> Value {
     let mut object = args.get(0).unwrap().as_object().unwrap().clone();
     let name = args.get(1).unwrap().as_string().unwrap().to_string();
     let value = args.get(2).unwrap().clone();
-    object.insert(name, value);
+    if let Value::Bool(false) = value {
+        object.remove(&name);
+    } else {
+        object.insert(name, value);
+    }
     object.into()
 }
 

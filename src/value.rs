@@ -100,13 +100,6 @@ impl Value {
         }
     }
 
-    pub fn as_object_mut(&mut self) -> Option<&mut HashMap<String, Value>> {
-        match self {
-            Self::Object(h) => Some(h),
-            _ => None,
-        }
-    }
-
     pub fn as_function(&self) -> Option<&Function> {
         match self {
             Self::Function(function) => Some(function),

@@ -1,0 +1,68 @@
+
+for: (from, to, f) => {
+	index: from;
+	loop {
+		if not(inf(index, to)) break true;
+		f(index);
+		index <- add(index, 1)
+	}
+};
+
+array_new: () => {
+	r: obj();
+	r <- set(r, "len", 0);
+	r
+};
+
+array_len: (self) => {
+	get(self, "len")
+};
+
+array_get: (self, index) => {
+	get(self, str(index))
+};
+
+array_push: (self, e) => {
+	i: array_len(self);
+	self <- set(self, str(i), e);
+
+	len: add (i, 1);
+	self <- set(self, "len", len);
+	self
+};
+
+array_pop: (self) => {
+	l: array_len(self);
+	if eq(l, 0) return false;
+	
+	i: sub(l, 1);
+	e: array_get(self, i);
+	self <- set(self, str(i), false);
+	
+	r: obj();
+	r <- set(r, "tail", e);
+	r <- set(r, "rest", self);
+	r
+};
+
+array_print: (self) => {
+	l: array_len(self);
+	r: "[";
+	for(0, l, (i) => {
+		r <- add(r, array_get(self, i));
+		r <- add(r, ", ")
+	});
+	r <- add(r, "]");
+	out(r)
+};
+
+main: () => {
+	a: array_new();
+	a <- array_push(a, 1);
+	a <- array_push(a, 2);
+	a <- array_push(a, 3);
+	a <- array_push(a, 4);
+	array_print(a)
+};
+
+main();

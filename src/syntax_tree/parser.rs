@@ -142,7 +142,12 @@ fn test_function_definition_parser() {
 pub fn function_call_parser(expression: impl AbstractParser<Expr>) -> impl AbstractParser<FnCall> {
     let parameters = expression.separated_by(just(',').padded());
     name()
-        .then(parameters.padded().delimited_by(just('('), just(')')))
+        .then(
+            parameters
+                .padded()
+                .delimited_by(just('('), just(')'))
+                .padded(),
+        )
         .map(|(name, arguments)| FnCall { arguments, name })
 }
 
