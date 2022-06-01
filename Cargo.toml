@@ -1,6 +1,6 @@
 [package]
 name = "prout"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["JOLIMAITRE Matthieu <matthieu@imagevo.fr>"]
 description = "A minimal programming language providing tools to automate file management like backups, building process or unit testing."
