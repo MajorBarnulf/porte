@@ -139,6 +139,12 @@ impl From<&str> for Value {
     }
 }
 
+impl From<HashMap<String, Value>> for Value {
+    fn from(value: HashMap<String, Value>) -> Self {
+        Self::Object(value)
+    }
+}
+
 impl<T> From<Option<T>> for Value
 where
     T: Into<Value>,

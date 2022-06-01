@@ -128,12 +128,12 @@ fn obj(_: Vec<Value>) -> Value {
     Value::Object(HashMap::new())
 }
 
-fn set(mut args: Vec<Value>) -> Value {
+fn set(args: Vec<Value>) -> Value {
+    let mut object = args.get(0).unwrap().as_object().unwrap().clone();
     let name = args.get(1).unwrap().as_string().unwrap().to_string();
     let value = args.get(2).unwrap().clone();
-    let object = args.get_mut(0).unwrap().as_object_mut().unwrap();
-    object.insert(name, value.clone());
-    value
+    object.insert(name, value);
+    object.into()
 }
 
 fn get(args: Vec<Value>) -> Value {
