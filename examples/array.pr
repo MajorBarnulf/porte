@@ -22,6 +22,13 @@ array_get: (self, index) => {
 	get(self, str(index))
 };
 
+foreach: (arr, f) => {
+	l: array_len(arr);
+	for(0, l, (i) => {
+		f(array_get(arr, i))
+	})
+};
+
 array_push: (self, e) => {
 	i: array_len(self);
 	self <- set(self, str(i), e);
@@ -38,31 +45,73 @@ array_pop: (self) => {
 	i: sub(l, 1);
 	e: array_get(self, i);
 	self <- set(self, str(i), false);
-	
+
+	rest: array_new();
+	foreach(self, (item) => { if not(eq(item, false)) rest <- array_push(rest, item) });
+
 	r: obj();
 	r <- set(r, "tail", e);
-	r <- set(r, "rest", self);
+	r <- set(r, "rest", rest);
 	r
+};
+
+array_swap: (self, i, j) => {
+	i_value: array_get(self, i);
+	j_value: array_get(self, j);
+	self <- set(self, str(j), i_value);
+	self <- set(self, str(i), j_value);
+	self
+};
+
+array_sort: (self, cmp) => {
+	l: array_len(self);
+	for(0, sub(l, 1), (i) => {
+		i_min: i;
+		for(add(i, 1), l, (j) => {
+			e_j: array_get(self, j);
+			e_min: array_get(self, i_min);
+			if inf(cmp(e_j, e_min), 0) i_min <- j
+		});
+		self <- array_swap(self, i, i_min)
+	});
+	self
 };
 
 array_print: (self) => {
 	l: array_len(self);
-	r: "[";
+	r: "[ ";
 	for(0, l, (i) => {
 		r <- add(r, array_get(self, i));
-		r <- add(r, ", ")
+		if not(eq(i, sub(l, 1))) r <- add(r, ", ")
 	});
-	r <- add(r, "]");
+	r <- add(r, " ]");
 	out(r)
 };
 
-main: () => {
-	a: array_new();
-	a <- array_push(a, 1);
-	a <- array_push(a, 2);
-	a <- array_push(a, 3);
-	a <- array_push(a, 4);
-	array_print(a)
-};
+"########################";
+"#         main         #";
+"########################";
 
-main();
+a: array_new();
+out("new:");
+array_print(a);
+
+a <- array_push(a, 1);
+a <- array_push(a, 4);
+a <- array_push(a, 6);
+a <- array_push(a, 3);
+a <- array_push(a, 2);
+out("");
+out("pushed:");
+array_print(a);
+
+r: array_pop(a);
+a <- get(r, "rest");
+out("");
+out("popped:");
+array_print(a);
+
+a <- array_sort(a, (a, b) => { if sup(a, b) 1 else -1 });
+out("");
+out("sorted:");
+array_print(a);

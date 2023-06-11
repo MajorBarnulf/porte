@@ -1,10 +1,10 @@
 
 hello: "hello";
-prout: "prout";
+porte: "porte";
 
 line: hello;
 line <- add(line, " ");
-line <- add(line, prout);
+line <- add(line, porte);
 
 say-it: () => {
     out(line)

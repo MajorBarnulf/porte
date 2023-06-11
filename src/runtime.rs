@@ -24,7 +24,7 @@ impl FrameBuilder {
     }
 
     pub fn variable(&mut self, variable_id: &Id, default: Value) {
-        self.variables.insert(variable_id.clone(), default);
+        self.variables.insert(*variable_id, default);
     }
 }
 
@@ -52,7 +52,7 @@ impl Frame {
         builder(&mut frame_builder);
 
         let FrameBuilder { variables } = frame_builder;
-        let scope_id = scope_id.clone();
+        let scope_id = *scope_id;
         Self {
             _scope_id: scope_id,
             variables,
@@ -99,6 +99,12 @@ impl Stack {
     }
 }
 
+impl Default for Stack {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct ShortCircuit {
     value: Value,
     destination_scope_id: Id,
@@ -138,9 +144,9 @@ impl ExecReturn {
     }
 }
 
-impl Into<ExecReturn> for Value {
-    fn into(self) -> ExecReturn {
-        ExecReturn::new_value(self)
+impl From<Value> for ExecReturn {
+    fn from(val: Value) -> Self {
+        ExecReturn::new_value(val)
     }
 }
 
@@ -169,7 +175,7 @@ impl Runtime {
     where
         F: FnOnce(&mut FrameBuilder),
     {
-        let scope = program.scopes.get(&scope_id).unwrap();
+        let scope = program.scopes.get(scope_id).unwrap();
         let Scope {
             parent_scope_id: _,
             expressions,
@@ -210,9 +216,7 @@ impl Runtime {
             ExprInner::FnDef(function_definition) => {
                 self.execute_function_definition(function_definition)
             }
-            ExprInner::FnCall(function_call) => {
-                self.execute_function_call(function_call, program).into()
-            }
+            ExprInner::FnCall(function_call) => self.execute_function_call(function_call, program),
             ExprInner::FnRet(function_return) => {
                 self.execute_function_return(function_return, program)
             }
@@ -272,7 +276,7 @@ impl Runtime {
             parameter_ids: argument_ids,
             body_scope_id,
         } = function_definition;
-        let value = Function::new_constructed(argument_ids.clone(), body_scope_id.clone());
+        let value = Function::new_constructed(argument_ids.clone(), *body_scope_id);
         let value = Value::Function(value);
         value.into()
     }
@@ -367,7 +371,7 @@ impl Runtime {
             }) => value,
         };
 
-        ExecReturn::new_short_circuit(value, function_scope_id.clone())
+        ExecReturn::new_short_circuit(value, *function_scope_id)
     }
 
     pub fn execute_loop(&mut self, loop_: &Loop, program: &Program) -> ExecReturn {
@@ -401,7 +405,7 @@ impl Runtime {
             }
         };
 
-        ExecReturn::new_short_circuit(value, loop_scope_id.clone())
+        ExecReturn::new_short_circuit(value, *loop_scope_id)
     }
 
     pub fn execute_condition(&mut self, condition: &Cond, program: &Program) -> ExecReturn {
@@ -430,5 +434,11 @@ impl Runtime {
         } else {
             panic!("non-boolean in condition");
         }
+    }
+}
+
+impl Default for Runtime {
+    fn default() -> Self {
+        Self::new()
     }
 }

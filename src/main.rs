@@ -1,20 +1,20 @@
 use std::{env::args, fs};
 
+pub mod demo;
 pub mod execution_tree;
 pub mod prelude;
 pub mod runtime;
 pub mod syntax_tree;
 pub mod value;
-pub mod demo;
 
 fn main() {
     use prelude::std_prelude;
 
-    let path = args().nth(1).expect("[error]: usage 'prout <path>'");
+    let path = args().nth(1).expect("[error]: usage 'porte <path>'");
     let input = fs::read_to_string(path).expect("file not found");
     let ast_parser = syntax_tree::parser::ParserWrapper::new();
     let parsed = ast_parser.parse(&input).unwrap();
-    let executable = execution_tree::parser::Parser::parse(parsed, |b| std_prelude(b));
+    let executable = execution_tree::parser::Parser::parse(parsed, std_prelude);
     let mut runtime = runtime::Runtime::new();
     runtime.execute(&executable);
 }
@@ -40,11 +40,11 @@ fn it_works() {
                     ]),
                 ),
             ),
-            Expr::new_function_call("my_print", vec!["hello, PROUT".into()]),
+            Expr::new_function_call("my_print", vec!["hello, PORTE".into()]),
             Expr::new_function_call("print", vec![Expr::new_variable_call("a")]),
         ]),
     };
-    let exec = Parser::parse(ast, |builder| std_prelude(builder));
+    let exec = Parser::parse(ast, std_prelude);
     println!("\n\n\n-- running: --");
     let _result = Runtime::new().execute(&exec);
 }

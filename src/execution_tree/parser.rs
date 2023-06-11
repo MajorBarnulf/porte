@@ -73,7 +73,7 @@ impl Parser {
         let parent_scope_id = parser_scope.get_parent_id();
         let expressions = instructions
             .into_iter()
-            .map(|expression| self.parse_expression(expression, &parser_scope))
+            .map(|expression| self.parse_expression(expression, parser_scope))
             .collect();
         let local_variables = parser_scope.local_variable_ids();
 
@@ -218,7 +218,7 @@ impl Parser {
 
         let variable_id = parser_scope
             .get_variable_id(&name)
-            .expect(&format!("call of undeclared function '{name}'"));
+            .unwrap_or_else(|| panic!("call of undeclared function '{name}'"));
         let parameters = arguments
             .into_iter()
             .map(|argument| self.parse_expression(argument, parser_scope))
@@ -390,7 +390,7 @@ impl ParserScope {
             next_id: self.next_id.clone(),
             variables: Rc::new(Mutex::new(variables)),
             current_id,
-            current_function_scope_id: Some(current_id.clone()),
+            current_function_scope_id: Some(current_id),
             current_loop_scope_id: None,
         }
     }
@@ -409,24 +409,24 @@ impl ParserScope {
             variables: Rc::new(Mutex::new(variables)),
             current_id,
             current_function_scope_id: self.get_current_function_id(),
-            current_loop_scope_id: Some(current_id.clone()),
+            current_loop_scope_id: Some(current_id),
         }
     }
 
     pub fn get_current_id(&self) -> Id {
-        self.current_id.clone()
+        self.current_id
     }
 
     pub fn get_current_function_id(&self) -> Option<Id> {
-        self.current_function_scope_id.clone()
+        self.current_function_scope_id
     }
 
     pub fn get_current_loop_id(&self) -> Option<Id> {
-        self.current_loop_scope_id.clone()
+        self.current_loop_scope_id
     }
 
     pub fn get_parent_id(&self) -> Option<Id> {
-        self.parent_id.clone()
+        self.parent_id
     }
 
     pub fn get_variable_id(&self, name: &str) -> Option<Id> {

@@ -1,15 +1,15 @@
 
-# PROUT
+# PORTE
 
 * Programmable
-* Repeatable
 * Opinionated
-* Understandable
+* Repeatable
 * Tiny
+* Extensible
 
 ## Description
 
-PROUT is a minimal programming language providing tools to automate file management like backups, building process or unit testing.
+PORTE is a minimal programming language providing tools to automate file management like backups, building process or unit testing.
 
 ## Usage
 
@@ -17,7 +17,7 @@ PROUT is a minimal programming language providing tools to automate file managem
 
 ```sh
 
-$ prout hello-world.pr
+$ porte hello-world.pr
 
 
 ```

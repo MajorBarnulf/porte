@@ -52,8 +52,7 @@ pub fn literal_value() -> impl AbstractParser<Value> {
         .unwrapped()
         .map(|n: f64| n.into());
 
-    let literal = bool.or(none).or(string).or(number);
-    literal
+    bool.or(none).or(string).or(number)
 }
 
 #[test]
@@ -66,11 +65,11 @@ fn test_literal_value() {
 pub fn name() -> impl AbstractParser<String> + Clone {
     let first = one_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
     let rest = first.clone().or(one_of("1234567890-_+/*"));
-    let name = first.then(rest.repeated()).map(|(f, v)| {
+
+    first.then(rest.repeated()).map(|(f, v)| {
         let rest = String::from_iter(&v);
         format!("{f}{rest}")
-    });
-    name
+    })
 }
 
 pub fn variable_definition_parser(
@@ -205,7 +204,7 @@ pub fn condition_parser(
     just("if ")
         .ignore_then(expression.clone())
         .then(expression.clone())
-        .then(just("else ").ignore_then(expression.clone()).or_not())
+        .then(just("else ").ignore_then(expression).or_not())
         .map(|((condition, arm_true), arm_false)| Cond {
             condition,
             arm_true,
@@ -296,7 +295,7 @@ fn _sugar_parser(expression: impl AbstractParser<Expr> + Clone) -> impl Abstract
     let and = expression
         .clone()
         .then_ignore(just(" && "))
-        .then(expression.clone())
+        .then(expression)
         .map(|(l, r)| {
             FnCall {
                 name: "and".into(),
@@ -317,7 +316,7 @@ pub fn expression_parser() -> impl AbstractParser<Expr> {
         let loop_ = loop_parser(expression.clone()).map(|i| i.into());
         let loop_break = loop_break_parser(expression.clone()).map(|i| i.into());
         let scope = scope_parser(expression.clone()).map(|i| i.into());
-        let litteral = literal_value().map(|v| Expr::new_literal(v));
+        let litteral = literal_value().map(Expr::new_literal);
         let variable_definition = variable_definition_parser(expression.clone()).map(|i| i.into());
         let variable_assignment = variable_assignement_parser(expression.clone()).map(|i| i.into());
         let function_call = function_call_parser(expression.clone()).map(|i| i.into());
@@ -354,11 +353,11 @@ fn parser() -> impl AbstractParser<Program> {
         .separated_by(just(';').padded())
         .then_ignore(just(';').padded().or_not())
         .then_ignore(end());
-    let program = scope.map(|instructions| {
+
+    scope.map(|instructions| {
         let body = Scope { instructions };
         Program { body }
-    });
-    program
+    })
 }
 
 #[test]
@@ -390,8 +389,14 @@ impl ParserWrapper {
         ParserWrapper { inner }
     }
 
-    pub fn parse<'i>(&self, input: &'i str) -> Result<Program, Vec<Simple<char>>> {
+    pub fn parse(&self, input: &str) -> Result<Program, Vec<Simple<char>>> {
         self.inner.parse(input)
+    }
+}
+
+impl Default for ParserWrapper {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

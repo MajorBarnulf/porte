@@ -55,9 +55,9 @@ pub mod function {
         }
     }
 
-    impl Into<Value> for Function {
-        fn into(self) -> Value {
-            Value::Function(self)
+    impl From<Function> for Value {
+        fn from(val: Function) -> Self {
+            Value::Function(val)
         }
     }
 }

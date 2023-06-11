@@ -6,7 +6,8 @@ use crate::{
 };
 
 pub fn std_prelude(builder: &mut ParserBuilder) {
-    let functions: Vec<(_, _, fn(Vec<Value>) -> Value)> = vec![
+    type FunctOper = fn(Vec<Value>) -> Value;
+    let functions: Vec<(_, _, FunctOper)> = vec![
         ("out", 1, out),
         ("add", 2, add),
         ("sub", 2, sub),
@@ -42,7 +43,7 @@ fn add(args: Vec<Value>) -> Value {
         (Value::String(l), Value::String(r)) => format!("{l}{r}").into(),
         (Value::Number(l), Value::String(r)) => format!("{l}{r}").into(),
         (Value::String(l), Value::Number(r)) => format!("{l}{r}").into(),
-        _ => unreachable!(),
+        _ => panic!("adding incompatible types"),
     }
 }
 
@@ -62,7 +63,7 @@ fn eq(args: Vec<Value>) -> Value {
         (Value::Bool(l), Value::Bool(r)) => (l == r).into(),
         (Value::Number(l), Value::Number(r)) => (l == r).into(),
         (Value::String(l), Value::String(r)) => (l == r).into(),
-        _ => panic!("comparing different types"),
+        _ => false.into(),
     }
 }
 
@@ -143,8 +144,5 @@ fn set(args: Vec<Value>) -> Value {
 fn get(args: Vec<Value>) -> Value {
     let object = args.get(0).unwrap().as_object().unwrap();
     let name = args.get(1).unwrap().as_string().unwrap();
-    object
-        .get(name)
-        .map(|value| value.clone())
-        .unwrap_or_else(|| false.into())
+    object.get(name).cloned().unwrap_or_else(|| false.into())
 }
